@@ -1,0 +1,117 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root.dark {
+  --background: 240 15% 6%;
+  --foreground: 240 10% 96%;
+  --card: 240 14% 9%;
+  --border: 240 10% 16%;
+  --muted: 240 10% 14%;
+  --muted-foreground: 240 6% 60%;
+  --accent: 255 85% 65%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 72% 58%;
+  --success: 142 70% 45%;
+  --warning: 38 92% 55%;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* Glass */
+.glass {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.04),
+    rgba(255, 255, 255, 0.01)
+  );
+  backdrop-filter: blur(16px);
+  border: 1px solid hsl(var(--border));
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(
+    135deg,
+    hsl(255 85% 70%),
+    hsl(280 85% 70%)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* =========================
+   SELECT / OPTION
+   ========================= */
+
+select {
+  background-color: hsl(var(--card));
+  color: hsl(var(--foreground));
+  color-scheme: dark;
+  border-color: hsl(var(--border));
+}
+
+select option {
+  background-color: hsl(var(--card));
+  color: hsl(var(--foreground));
+}
+
+select option:checked {
+  background-color: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+
+select option:hover {
+  background-color: hsl(var(--muted));
+  color: hsl(var(--foreground));
+}
+
+select:focus {
+  outline: none;
+}
+
+/* =========================
+   INPUT
+   ========================= */
+
+input,
+textarea {
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--card));
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: hsl(var(--muted-foreground));
+}
+
+/* =========================
+   SCROLLBAR
+   ========================= */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}

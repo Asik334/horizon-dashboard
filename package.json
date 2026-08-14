@@ -1,0 +1,21 @@
+{
+  "name": "horizon-dashboard",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w @horizon/web",
+    "dev:api": "npm run dev -w @horizon/api",
+    "dev:bot": "npm run dev -w @horizon/bot",
+    "build:web": "npm run build -w @horizon/web",
+    "build:api": "npm run build -w @horizon/api",
+    "build:bot": "npm run build -w @horizon/database && npm run build -w @horizon/bot",
+    "db:generate": "npm run generate -w @horizon/database",
+    "db:migrate": "npm run migrate:dev -w @horizon/database"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}

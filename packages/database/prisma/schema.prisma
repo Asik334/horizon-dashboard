@@ -1,0 +1,503 @@
+// Horizon Bot Dashboard — Prisma Schema
+// Эта схема рассчитана на СОСУЩЕСТВОВАНИЕ с БД существующего бота.
+// Если у бота уже есть таблицы guilds/members и т.п. — смэпьте их через
+// `@@map("existing_table_name")` вместо создания дублей, либо запустите
+// `prisma db pull` на текущей базе и объедините схемы вручную.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- AUTH / USERS ----------
+
+model User {
+  id              String           @id @default(cuid())
+  discordId       String           @unique
+  username        String
+  discriminator   String?
+  globalName      String?
+  avatar          String?
+  email           String?
+  accessToken     String? // зашифрован на уровне приложения перед записью
+  refreshToken    String? // зашифрован на уровне приложения перед записью
+  tokenExpiresAt  DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  sessions        Session[]
+  moderationLogs  ModerationLog[]  @relation("ModeratorUser")
+  auditLogs       AuditLog[]
+  tournamentsCreated Tournament[]  @relation("TournamentCreator")
+
+  @@map("dashboard_users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jwtId     String   @unique
+  userAgent String?
+  ip        String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("dashboard_sessions")
+}
+
+// ---------- GUILDS ----------
+
+model Guild {
+  id            String   @id // Discord guild ID, не автоинкремент
+  name          String
+  icon          String?
+  ownerId       String
+  botPresent    Boolean  @default(false)
+  memberCount   Int      @default(0)
+  onlineCount   Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  members        GuildMember[]
+  settings       GuildSettings?
+  moderationLogs ModerationLog[]
+  warnings       Warning[]
+  analytics      Analytics[]
+  voiceSessions  VoiceSession[]
+  auditLogs      AuditLog[]
+  aiAnalyses     AIAnalysis[]
+  surpriseConfigs SurpriseConfig[]
+  surpriseEvents  SurpriseEvent[]
+  tournaments     Tournament[]
+
+  @@map("guilds")
+}
+
+model GuildMember {
+  id           String    @id @default(cuid())
+  guildId      String
+  guild        Guild     @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  discordId    String
+  username     String
+  displayName  String?
+  avatar       String?
+  roles        String[]  @default([])
+  joinedAt     DateTime?
+  messageCount Int       @default(0)
+  isBot        Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  warnings      Warning[]
+  moderationLogs ModerationLog[] @relation("TargetMember")
+
+  @@unique([guildId, discordId])
+  @@index([guildId])
+  @@map("guild_members")
+}
+
+model GuildSettings {
+  id      String @id @default(cuid())
+  guildId String @unique
+  guild   Guild  @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  // General
+  language String @default("ru")
+  timezone String @default("Europe/Moscow")
+
+  // Welcome
+  welcomeEnabled Boolean @default(false)
+  welcomeChannelId String?
+  welcomeMessage   String?
+  autoRoleId       String?
+
+  // Moderation
+  antiSpam           Boolean @default(false)
+  antiLink           Boolean @default(false)
+  antiRaid           Boolean @default(false)
+  toxicityDetection  Boolean @default(false)
+  autoModeration     Boolean @default(false)
+
+  // AI
+  aiAnalysisEnabled     Boolean @default(false)
+  aiModerationEnabled   Boolean @default(false)
+  aiRecommendations     Boolean @default(true)
+
+  // Voice
+  voiceTempChannels  Boolean @default(false)
+  voiceAutoCleanup   Boolean @default(true)
+  voiceDefaultLimit  Int     @default(0)
+
+  updatedAt DateTime @updatedAt
+
+  @@map("guild_settings")
+}
+
+// ---------- MODERATION ----------
+
+enum ModerationAction {
+  WARN
+  TIMEOUT
+  KICK
+  BAN
+  UNBAN
+  MESSAGE_DELETE
+  SLOWMODE
+}
+
+model ModerationLog {
+  id           String            @id @default(cuid())
+  guildId      String
+  guild        Guild             @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  targetMemberId String?
+  targetMember GuildMember?      @relation("TargetMember", fields: [targetMemberId], references: [id])
+  targetDiscordId String
+  targetUsername  String
+  action       ModerationAction
+  reason       String?
+  moderatorUserId String?
+  moderator    User?             @relation("ModeratorUser", fields: [moderatorUserId], references: [id])
+  moderatorName String
+  metadata     Json?
+  createdAt    DateTime          @default(now())
+
+  @@index([guildId, createdAt])
+  @@map("moderation_logs")
+}
+
+model Warning {
+  id        String      @id @default(cuid())
+  guildId   String
+  guild     Guild       @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  memberId  String
+  member    GuildMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  reason    String
+  active    Boolean     @default(true)
+  createdAt DateTime    @default(now())
+
+  @@index([guildId, memberId])
+  @@map("warnings")
+}
+
+// ---------- ANALYTICS ----------
+
+model Analytics {
+  id             String   @id @default(cuid())
+  guildId        String
+  guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  date           DateTime // день, к которому относится агрегат (UTC, полночь)
+  memberCount    Int      @default(0)
+  onlineCount    Int      @default(0)
+  messageCount   Int      @default(0)
+  newMembers     Int      @default(0)
+  leftMembers    Int      @default(0)
+  voiceMinutes   Int      @default(0)
+  moderationActs Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  @@unique([guildId, date])
+  @@index([guildId, date])
+  @@map("analytics")
+}
+
+// ---------- VOICE ----------
+
+model VoiceSession {
+  id          String    @id @default(cuid())
+  guildId     String
+  guild       Guild     @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  channelId   String
+  channelName String
+  discordId   String    // пользователь
+  joinedAt    DateTime
+  leftAt      DateTime?
+  durationSec Int?
+
+  @@index([guildId, channelId])
+  @@map("voice_sessions")
+}
+
+// ---------- AUDIT / SYSTEM LOGS ----------
+
+enum AuditLogType {
+  MEMBER_JOINED
+  MEMBER_LEFT
+  MESSAGE_DELETED
+  WARNING
+  TIMEOUT
+  KICK
+  BAN
+  ROLE_CHANGED
+  CHANNEL_CREATED
+  CHANNEL_DELETED
+  BOT_ACTION
+}
+
+model AuditLog {
+  id        String       @id @default(cuid())
+  guildId   String
+  guild     Guild        @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  type      AuditLogType
+  actorId   String?      // discord id, кто совершил действие
+  actorName String?
+  dashboardUserId String? // если действие совершено через дашборд
+  dashboardUser User?    @relation(fields: [dashboardUserId], references: [id])
+  description String
+  metadata  Json?
+  createdAt DateTime     @default(now())
+
+  @@index([guildId, createdAt])
+  @@index([guildId, type])
+  @@map("audit_logs")
+}
+
+// ---------- AI ANALYSIS ----------
+
+model AIAnalysis {
+  id                String   @id @default(cuid())
+  guildId           String
+  guild             Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  healthScore       Int
+  engagementScore   Int
+  moderationScore   Int
+  activityScore     Int
+  growthScore       Int
+  recommendations   String[] @default([])
+  insights          Json?    // произвольная структура: active/inactive channels, peak hours, topics
+  createdAt         DateTime @default(now())
+
+  @@index([guildId, createdAt])
+  @@map("ai_analyses")
+}
+
+// ---------- SURPRISES ----------
+
+enum SurpriseType {
+  RANDOM_REWARD
+  RANDOM_EVENT
+  XP_BOOST
+  ACTIVITY_CHALLENGE
+}
+
+model SurpriseConfig {
+  id           String       @id @default(cuid())
+  guildId      String
+  guild        Guild        @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  type         SurpriseType
+  enabled      Boolean      @default(false)
+  probability  Int          @default(5) // % шанс срабатывания за проверяемый интервал
+  channelId    String?
+  reward       String? // произвольное описание награды/эффекта
+  startHour    Int?         @default(0)  // окно суток, в которое разрешено срабатывание
+  endHour      Int?         @default(23)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  events       SurpriseEvent[]
+
+  @@unique([guildId, type])
+  @@map("surprise_configs")
+}
+
+model SurpriseEvent {
+  id         String         @id @default(cuid())
+  guildId    String
+  guild      Guild          @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  configId   String
+  config     SurpriseConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  type       SurpriseType
+  channelId  String?
+  winnerDiscordId String?
+  details    Json?
+  triggeredAt DateTime      @default(now())
+
+  @@index([guildId, triggeredAt])
+  @@map("surprise_events")
+}
+
+// ---------- TOURNAMENTS ----------
+// Турниры с платным входом. Оплата — Stripe Checkout (одноразовый платёж
+// за участие). Формат в первой версии — одиночное выбывание (single
+// elimination); TournamentFormat сделан enum'ом, чтобы позже добавить
+// групповой этап/round robin без миграции существующих данных.
+
+enum TournamentFormat {
+  SINGLE_ELIMINATION
+}
+
+enum TournamentStatus {
+  DRAFT               // черновик, ещё не анонсирован, регистрация закрыта
+  REGISTRATION_OPEN   // анонсирован, участники могут платить за вход
+  REGISTRATION_CLOSED // регистрация закрыта, сетка ещё не сгенерирована
+  IN_PROGRESS         // сетка сгенерирована, матчи идут
+  COMPLETED
+  CANCELLED           // отменён — все PAID-участники должны быть возвращены (refund)
+}
+
+enum ParticipantStatus {
+  PENDING_PAYMENT // создан слот, ждём подтверждения оплаты от Stripe
+  CONFIRMED       // оплата прошла, участник в турнире
+  CHECKED_IN      // подтвердил присутствие перед стартом (опционально используется UI)
+  DISQUALIFIED
+  REFUNDED        // турнир отменён / участник снят, деньги возвращены
+}
+
+enum MatchStatus {
+  PENDING   // одного или обоих участников ещё нет (ждём результата предыдущего раунда)
+  READY     // оба участника определены, матч можно играть
+  COMPLETED
+  BYE       // технический проход дальше (нечётное число участников в раунде)
+}
+
+enum PaymentProvider {
+  STRIPE
+}
+
+enum PaymentStatus {
+  PENDING   // Checkout Session создана, ждём оплаты (webhook)
+  PAID
+  FAILED
+  REFUNDED
+  CANCELLED // сессия истекла/отменена пользователем, не оплачена
+}
+
+model Tournament {
+  id          String   @id @default(cuid())
+  guildId     String
+  guild       Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+  game        String   @default("CS2") // произвольная строка: CS2, Valorant и т.д.
+  format      TournamentFormat @default(SINGLE_ELIMINATION)
+  status      TournamentStatus @default(DRAFT)
+
+  // Stripe оперирует минимальными единицами валюты (центы для usd/eur).
+  entryFeeCents   Int    @default(0)
+  currency        String @default("usd")
+
+  maxParticipants Int
+  minParticipants Int    @default(2)
+  // Должно быть степенью двойки для чистой сетки single elimination;
+  // при генерации сетки недостающие слоты в последнем раунде превращаются в BYE.
+
+  prizePool   String? // текстовое описание приза — не обрабатывается платёжной логикой
+
+  // Канал, куда бот постит анонс с кнопкой-ссылкой на регистрацию/оплату.
+  announceChannelId String?
+  announceMessageId String?
+
+  registrationOpensAt  DateTime?
+  registrationClosesAt DateTime?
+  startsAt             DateTime?
+
+  createdByUserId String?
+  createdBy       User?    @relation("TournamentCreator", fields: [createdByUserId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  participants TournamentParticipant[]
+  matches      TournamentMatch[]
+  payments     Payment[]
+
+  @@index([guildId, status])
+  @@map("tournaments")
+}
+
+model TournamentParticipant {
+  id           String   @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  discordId String
+  username  String
+  avatar    String?
+
+  seed   Int? // назначается при генерации сетки (случайный посев)
+  status ParticipantStatus @default(PENDING_PAYMENT)
+
+  checkedInAt   DateTime?
+  eliminatedAt  DateTime?
+  createdAt     DateTime  @default(now())
+
+  payment Payment?
+
+  matchesAsA TournamentMatch[] @relation("ParticipantA")
+  matchesAsB TournamentMatch[] @relation("ParticipantB")
+  wonMatches TournamentMatch[] @relation("Winner")
+
+  // Один Discord-пользователь = один слот в турнире (не считая записей,
+  // от которых он отказался/был дисквалифицирован — они не удаляются,
+  // а помечаются статусом, поэтому уникальность по паре tournament+discordId
+  // хватает только пока не разрешён повторный вход после дисквалификации;
+  // это осознанное ограничение первой версии).
+  @@unique([tournamentId, discordId])
+  @@index([tournamentId, status])
+  @@map("tournament_participants")
+}
+
+model TournamentMatch {
+  id           String   @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  round    Int // 1 = первый раунд
+  position Int // индекс матча внутри раунда, слева направо — задаёт форму дерева
+
+  participantAId String?
+  participantA    TournamentParticipant? @relation("ParticipantA", fields: [participantAId], references: [id])
+  participantBId String?
+  participantB    TournamentParticipant? @relation("ParticipantB", fields: [participantBId], references: [id])
+
+  winnerId String?
+  winner   TournamentParticipant? @relation("Winner", fields: [winnerId], references: [id])
+
+  scoreA Int?
+  scoreB Int?
+
+  status      MatchStatus @default(PENDING)
+  scheduledAt DateTime?
+  completedAt DateTime?
+
+  @@unique([tournamentId, round, position])
+  @@index([tournamentId, round])
+  @@map("tournament_matches")
+}
+
+// Один Payment = одна попытка оплаты одного участника (Stripe Checkout Session).
+// Хранится отдельно от Participant, чтобы Participant можно было один раз
+// создать до оплаты (PENDING_PAYMENT) и не плодить дублей при повторном
+// нажатии "Оплатить" — providerSessionId уникален для сверки в webhook.
+model Payment {
+  id           String   @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  participantId String   @unique
+  participant   TournamentParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  provider PaymentProvider @default(STRIPE)
+
+  providerSessionId       String? @unique // Stripe Checkout Session ID
+  providerPaymentIntentId String? // Stripe PaymentIntent ID — нужен для refund
+
+  amountCents Int
+  currency    String
+
+  status    PaymentStatus @default(PENDING)
+  discordId String // дублируем сюда для быстрых выборок/логов без join
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tournamentId, status])
+  @@map("tournament_payments")
+}
+
