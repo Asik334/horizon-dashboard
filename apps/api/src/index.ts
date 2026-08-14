@@ -1,3 +1,11 @@
+process.on("unhandledRejection", (reason) => {
+  console.error("🔴 UNHANDLED REJECTION:", reason);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("🔴 UNCAUGHT EXCEPTION:", err);
+});
+
 import express from "express";
 import http from "http";
 import cors from "cors";
