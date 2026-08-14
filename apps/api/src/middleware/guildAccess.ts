@@ -8,297 +8,164 @@ import {
 } from "../lib/discord";
 import { prisma } from "@horizon/database";
 
-/**
- * Кэш доступных пользователю Discord-серверов.
- *
- * Это позволяет не обращаться к Discord API на каждый запрос.
- */
-const guildAccessCache = new Map<
-  string,
-  {
-    guilds: Map<string, DiscordUserGuild>;
-    expiresAt: number;
-  }
->();
+type GuildCacheEntry = {
+  guilds: Map<string, DiscordUserGuild>;
+  expiresAt: number;
+};
 
-/**
- * Защита от нескольких одновременных запросов.
- *
- * Если одновременно приходит 10 запросов от одного пользователя,
- * Discord получит только ОДИН запрос /users/@me/guilds.
- */
-const guildAccessInflight = new Map<
-  string,
-  Promise<Map<string, DiscordUserGuild>>
->();
+const guildAccessCache = new Map<string, GuildCacheEntry>();
 
-/**
- * Защита от Discord 429.
- *
- * Если Discord сказал "слишком много запросов",
- * некоторое время вообще не обращаемся к Discord.
- */
-const guildAccessRateLimit = new Map<
-  string,
-  {
-    retryAt: number;
-  }
->();
+// Было 60 секунд.
+// Увеличиваем до 5 минут, чтобы не спамить Discord API.
+const CACHE_TTL_MS = 5 * 60_000;
 
-/**
- * Кэшируем доступ пользователя на 60 секунд.
- */
-const CACHE_TTL_MS = 60_000;
+// Если Discord дал 429, не пытаемся снова каждую миллисекунду.
+const RATE_LIMIT_COOLDOWN_MS = 30_000;
 
-/**
- * Получить список серверов Discord,
- * которыми пользователь может управлять.
- */
+const guildRateLimitCache = new Map<string, number>();
+
 async function getManageableGuilds(
   userId: string
 ): Promise<Map<string, DiscordUserGuild>> {
-  /**
-   * 1. Сначала проверяем обычный кэш.
-   */
+  const now = Date.now();
+
+  // 1. Обычный cache
   const cached = guildAccessCache.get(userId);
 
-  if (cached && cached.expiresAt > Date.now()) {
+  if (cached && cached.expiresAt > now) {
     return cached.guilds;
   }
 
-  /**
-   * 2. Проверяем, не выполняется ли уже такой запрос.
-   *
-   * Это очень важно для защиты от 429.
-   */
-  const existingRequest = guildAccessInflight.get(userId);
+  // 2. Если недавно получили 429 — используем старый cache,
+  // если он существует, и НЕ идём снова в Discord.
+  const rateLimitedUntil = guildRateLimitCache.get(userId);
 
-  if (existingRequest) {
-    return existingRequest;
-  }
-
-  /**
-   * 3. Проверяем временный rate-limit.
-   *
-   * Если Discord недавно вернул 429,
-   * не отправляем новый запрос.
-   */
-  const rateLimit = guildAccessRateLimit.get(userId);
-
-  if (rateLimit && rateLimit.retryAt > Date.now()) {
-    /**
-     * Если есть старый кэш — используем его.
-     */
+  if (rateLimitedUntil && rateLimitedUntil > now) {
     if (cached) {
       return cached.guilds;
     }
 
-    /**
-     * Если старого кэша нет,
-     * возвращаем пустой список.
-     */
-    return new Map<string, DiscordUserGuild>();
+    throw Object.assign(
+      new Error("Discord API rate limit"),
+      {
+        status: 429,
+        response: {
+          status: 429,
+        },
+      }
+    );
   }
 
-  /**
-   * 4. Создаём один общий Promise.
-   */
-  const request = (async () => {
-    /**
-     * Получаем пользователя из БД.
-     */
-    const user = await prisma.user.findUnique({
-      where: {
-        id: userId,
-      },
-    });
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
 
-    if (!user?.accessToken) {
-      return new Map<string, DiscordUserGuild>();
-    }
-
-    try {
-      /**
-       * Получаем серверы пользователя из Discord.
-       */
-      const guilds = await getDiscordUserGuilds(
-        user.accessToken
-      );
-
-      /**
-       * Оставляем только серверы,
-       * где пользователь владелец или имеет необходимые права.
-       */
-      const manageable = new Map(
-        guilds
-          .filter(
-            (guild) =>
-              guild.owner ||
-              canManageGuild(guild.permissions)
-          )
-          .map((guild) => [guild.id, guild])
-      );
-
-      /**
-       * Сохраняем результат в кэш.
-       */
-      guildAccessCache.set(userId, {
-        guilds: manageable,
-        expiresAt: Date.now() + CACHE_TTL_MS,
-      });
-
-      /**
-       * Discord снова отвечает нормально.
-       * Удаляем старый rate-limit.
-       */
-      guildAccessRateLimit.delete(userId);
-
-      return manageable;
-    } catch (err: any) {
-      const status = err?.response?.status;
-
-      /**
-       * Логируем только полезную информацию,
-       * а не весь огромный AxiosError.
-       */
-      console.error("[Discord Guilds]", {
-        status,
-        data: err?.response?.data,
-        userId,
-      });
-
-      /**
-       * ==========================================
-       * DISCORD 429
-       * ==========================================
-       */
-      if (status === 429) {
-        const retryAfter =
-          Number(err?.response?.data?.retry_after) || 5;
-
-        guildAccessRateLimit.set(userId, {
-          retryAt: Date.now() + retryAfter * 1000,
-        });
-
-        /**
-         * Если есть старый кэш,
-         * продолжаем работать с ним.
-         */
-        if (cached) {
-          return cached.guilds;
-        }
-
-        /**
-         * Иначе временно возвращаем пустой список.
-         */
-        return new Map<string, DiscordUserGuild>();
-      }
-
-      /**
-       * ==========================================
-       * ACCESS TOKEN EXPIRED
-       * ==========================================
-       */
-      if (status === 401 && user.refreshToken) {
-        try {
-          /**
-           * Обновляем Discord OAuth token.
-           */
-          const refreshed = await refreshDiscordToken(
-            user.refreshToken
-          );
-
-          /**
-           * Сохраняем новые токены в БД.
-           */
-          await prisma.user.update({
-            where: {
-              id: userId,
-            },
-            data: {
-              accessToken: refreshed.access_token,
-              refreshToken: refreshed.refresh_token,
-              tokenExpiresAt: new Date(
-                Date.now() +
-                  refreshed.expires_in * 1000
-              ),
-            },
-          });
-
-          /**
-           * Повторяем запрос уже с новым токеном.
-           */
-          const guilds =
-            await getDiscordUserGuilds(
-              refreshed.access_token
-            );
-
-          const manageable = new Map(
-            guilds
-              .filter(
-                (guild) =>
-                  guild.owner ||
-                  canManageGuild(guild.permissions)
-              )
-              .map((guild) => [guild.id, guild])
-          );
-
-          /**
-           * Сохраняем новый результат.
-           */
-          guildAccessCache.set(userId, {
-            guilds: manageable,
-            expiresAt: Date.now() + CACHE_TTL_MS,
-          });
-
-          /**
-           * Сбрасываем rate-limit.
-           */
-          guildAccessRateLimit.delete(userId);
-
-          return manageable;
-        } catch (refreshErr: any) {
-          console.error(
-            "[Discord Token Refresh]",
-            refreshErr?.response?.data ||
-              refreshErr?.message
-          );
-
-          /**
-           * Если обновление токена не удалось,
-           * используем старый кэш, если он существует.
-           */
-          return (
-            cached?.guilds ||
-            new Map<string, DiscordUserGuild>()
-          );
-        }
-      }
-
-      /**
-       * Остальные ошибки передаём дальше.
-       */
-      throw err;
-    }
-  })();
-
-  /**
-   * Сохраняем выполняющийся запрос.
-   */
-  guildAccessInflight.set(userId, request);
+  if (!user?.accessToken) {
+    return new Map();
+  }
 
   try {
-    return await request;
-  } finally {
-    /**
-     * После завершения запроса удаляем его из inflight.
-     */
-    guildAccessInflight.delete(userId);
+    const guilds = await getDiscordUserGuilds(user.accessToken);
+
+    const manageable = new Map(
+      guilds
+        .filter(
+          (guild) =>
+            guild.owner || canManageGuild(guild.permissions)
+        )
+        .map((guild) => [guild.id, guild])
+    );
+
+    guildAccessCache.set(userId, {
+      guilds: manageable,
+      expiresAt: now + CACHE_TTL_MS,
+    });
+
+    // Успешный запрос — снимаем rate-limit cooldown.
+    guildRateLimitCache.delete(userId);
+
+    return manageable;
+  } catch (err: any) {
+    const status = err?.response?.status;
+
+    // Discord 429
+    if (status === 429) {
+      guildRateLimitCache.set(
+        userId,
+        Date.now() + RATE_LIMIT_COOLDOWN_MS
+      );
+
+      // Если есть старый cache — продолжаем работать с ним.
+      if (cached) {
+        return cached.guilds;
+      }
+
+      throw err;
+    }
+
+    // Access token истёк.
+    if (status === 401 && user.refreshToken) {
+      try {
+        const refreshed = await refreshDiscordToken(
+          user.refreshToken
+        );
+
+        await prisma.user.update({
+          where: { id: userId },
+          data: {
+            accessToken: refreshed.access_token,
+            refreshToken: refreshed.refresh_token,
+            tokenExpiresAt: new Date(
+              Date.now() + refreshed.expires_in * 1000
+            ),
+          },
+        });
+
+        const guilds = await getDiscordUserGuilds(
+          refreshed.access_token
+        );
+
+        const manageable = new Map(
+          guilds
+            .filter(
+              (guild) =>
+                guild.owner ||
+                canManageGuild(guild.permissions)
+            )
+            .map((guild) => [guild.id, guild])
+        );
+
+        guildAccessCache.set(userId, {
+          guilds: manageable,
+          expiresAt: Date.now() + CACHE_TTL_MS,
+        });
+
+        guildRateLimitCache.delete(userId);
+
+        return manageable;
+      } catch (refreshError: any) {
+        // Если повторно получили 429 — не продолжаем цикл.
+        if (refreshError?.response?.status === 429) {
+          guildRateLimitCache.set(
+            userId,
+            Date.now() + RATE_LIMIT_COOLDOWN_MS
+          );
+
+          if (cached) {
+            return cached.guilds;
+          }
+        }
+
+        throw refreshError;
+      }
+    }
+
+    throw err;
   }
 }
 
 /**
- * Гарантирует, что Guild существует в БД.
+ * Создаёт Guild в БД, если его ещё нет.
  */
 async function ensureGuildRecord(
   guildId: string,
@@ -328,7 +195,7 @@ async function ensureGuildRecord(
 }
 
 /**
- * Middleware проверки доступа к Discord-серверу.
+ * Проверяет, имеет ли пользователь права управления сервером.
  */
 export async function requireGuildAccess(
   req: AuthedRequest,
@@ -338,40 +205,24 @@ export async function requireGuildAccess(
   try {
     const { guildId } = req.params;
 
-    /**
-     * Проверяем guildId.
-     */
     if (!guildId) {
       return res.status(400).json({
         error: "GUILD_ID_REQUIRED",
       });
     }
 
-    /**
-     * Проверяем авторизацию пользователя.
-     */
     if (!req.user) {
       return res.status(401).json({
         error: "UNAUTHENTICATED",
       });
     }
 
-    /**
-     * Получаем доступные пользователю серверы.
-     */
     const manageableGuilds =
       await getManageableGuilds(req.user.id);
 
-    /**
-     * Ищем нужный сервер.
-     */
     const discordGuild =
       manageableGuilds.get(guildId);
 
-    /**
-     * Если пользователь не имеет доступа —
-     * запрещаем запрос.
-     */
     if (!discordGuild) {
       return res.status(403).json({
         error: "FORBIDDEN",
@@ -380,31 +231,38 @@ export async function requireGuildAccess(
       });
     }
 
-    /**
-     * Гарантируем наличие Guild в БД.
-     */
     await ensureGuildRecord(
       guildId,
       discordGuild,
       req.user.discordId
     );
 
-    /**
-     * Всё хорошо — продолжаем выполнение route.
-     */
     next();
-  } catch (err) {
+  } catch (err: any) {
+    console.error(
+      "[GuildAccess] Error:",
+      err?.response?.status || err?.status || err?.message || err
+    );
+
+    if (err?.response?.status === 429 || err?.status === 429) {
+      return res.status(429).json({
+        error: "DISCORD_RATE_LIMIT",
+        message:
+          "Discord временно ограничил запросы. Повторите через несколько секунд.",
+      });
+    }
+
     next(err);
   }
 }
 
 /**
- * Полностью очищает кэш пользователя.
+ * Вызывай после logout / повторной авторизации,
+ * если нужно принудительно обновить список серверов.
  */
 export function invalidateGuildAccessCache(
   userId: string
 ) {
   guildAccessCache.delete(userId);
-  guildAccessInflight.delete(userId);
-  guildAccessRateLimit.delete(userId);
+  guildRateLimitCache.delete(userId);
 }
