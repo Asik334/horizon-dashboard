@@ -59,19 +59,21 @@ export default function MembersPage() {
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {members.map((m) => (
-          <Card key={m.id} className="flex items-center gap-3">
-            <img
-              src={discordAvatarUrl(m.discordId, m.avatar, 40)}
-              className="h-10 w-10 rounded-full"
-              alt={m.username}
-            />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{m.displayName ?? m.username}</p>
-              <p className="truncate text-xs text-muted-foreground">
-                {m.messageCount} msgs · {m._count?.warnings ?? 0} warnings
-              </p>
-            </div>
-          </Card>
+          <Link key={m.id} href={`/servers/${guildId}/members/${m.id}`}>
+            <Card className="flex cursor-pointer items-center gap-3 transition-transform hover:-translate-y-0.5">
+              <img
+                src={discordAvatarUrl(m.discordId, m.avatar, 40)}
+                className="h-10 w-10 rounded-full"
+                alt={m.username}
+              />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{m.displayName ?? m.username}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {m.messageCount} msgs · {m._count?.warnings ?? 0} warnings
+                </p>
+              </div>
+            </Card>
+          </Link>
         ))}
         {members.length === 0 && (
           <Card className="col-span-full text-center text-muted-foreground">Участники не найдены</Card>

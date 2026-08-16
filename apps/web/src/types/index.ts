@@ -69,6 +69,19 @@ export interface VoiceChannelState {
   users: number;
 }
 
+export interface Warning {
+  id: string;
+  reason: string;
+  active: boolean;
+  createdAt: string;
+}
+
+export interface MemberHistory {
+  member: GuildMember;
+  warnings: Warning[];
+  moderationLogs: ModerationLogEntry[];
+}
+
 export interface Paginated<T> {
   pagination: { page: number; pageSize: number; total: number; totalPages: number };
   [key: string]: T[] | any;
