@@ -89,6 +89,14 @@ body {
   display: none;
 }
 
+.pulse-dot.pulse-dot-warning {
+  background: hsl(var(--warning));
+}
+
+.pulse-dot.pulse-dot-warning::after {
+  border-color: hsl(var(--warning));
+}
+
 .pulse-dot.pulse-dot-danger {
   background: hsl(var(--destructive));
 }
