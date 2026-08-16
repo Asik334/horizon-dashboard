@@ -23,19 +23,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <header className="flex items-center justify-end gap-2 border-b border-border px-6 py-3">
           <span
             className={
-              "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium " +
+              "flex items-center gap-2 rounded-full px-2.5 py-1 font-mono text-xs font-medium uppercase tracking-wide " +
               (isLive
-                ? "bg-[hsl(var(--success))]/10 text-[hsl(var(--success))]"
+                ? "bg-accent/10 text-accent"
                 : "bg-white/5 text-muted-foreground")
             }
           >
-            <span
-              className={
-                "h-1.5 w-1.5 rounded-full " +
-                (isLive ? "animate-pulse bg-[hsl(var(--success))]" : "bg-muted-foreground")
-              }
-            />
-            {isLive ? "LIVE" : "OFFLINE"}
+            <span className={isLive ? "pulse-dot" : "pulse-dot pulse-dot-idle"} aria-hidden="true" />
+            {isLive ? "Live" : "Offline"}
           </span>
         </header>
         <main className="p-4 md:p-8">{children}</main>

@@ -44,6 +44,7 @@ export function Sidebar() {
   const guildId = params?.guildId;
   const [open, setOpen] = useState(false);
   const user = useAppStore((s) => s.user);
+  const isLive = useAppStore((s) => s.isLive);
 
   const linkFor = (item: (typeof nav)[number]) => {
     if (item.global) return "/servers";
@@ -73,9 +74,9 @@ export function Sidebar() {
           </span>
         </div>
         <span
-          className="pulse-dot"
-          title="Бот онлайн"
-          aria-label="Бот онлайн"
+          className={isLive ? "pulse-dot" : "pulse-dot pulse-dot-idle"}
+          title={isLive ? "Соединение активно" : "Нет соединения"}
+          aria-label={isLive ? "Соединение активно" : "Нет соединения"}
         />
       </div>
 
