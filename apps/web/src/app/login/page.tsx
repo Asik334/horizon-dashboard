@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { discordLoginUrl } from "@/lib/api";
 import { useSearchParams } from "next/navigation";
@@ -21,11 +22,16 @@ function LoginCard() {
       transition={{ duration: 0.5 }}
       className="glass relative w-full max-w-sm rounded-2xl p-8 text-center"
     >
-      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[hsl(255_85%_65%)] to-[hsl(280_85%_65%)] text-2xl font-bold text-white">
-        H
-      </div>
-      <h1 className="text-xl font-semibold">
-        Horizon <span className="gradient-text">Bot</span>
+      <Image
+        src="/logo.png"
+        alt="Horizon Project"
+        width={56}
+        height={56}
+        className="mx-auto mb-4 rounded-2xl"
+        priority
+      />
+      <h1 className="font-display text-xl font-bold uppercase tracking-wide">
+        Horizon <span className="gradient-text">Project</span>
       </h1>
       <p className="mt-2 text-sm text-muted-foreground">
         Панель управления вашими Discord-серверами
@@ -57,7 +63,7 @@ function LoginCard() {
 export default function LoginPage() {
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-20%,hsl(255_85%_25%/0.35),transparent_60%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-20%,hsl(154_78%_20%/0.35),transparent_60%)]" />
       <Suspense fallback={null}>
         <LoginCard />
       </Suspense>

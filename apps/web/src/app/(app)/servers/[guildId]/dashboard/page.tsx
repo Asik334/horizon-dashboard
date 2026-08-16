@@ -68,7 +68,7 @@ export default function GuildDashboardPage() {
         <StatCard label="Messages (24h)" value={messages24h.toLocaleString("ru-RU")} icon={MessageSquare} />
         <StatCard label="Warnings" value={warnings} icon={ShieldAlert} accent="warning" />
         <StatCard label="Bans" value={bans} icon={Ban} accent="destructive" />
-        <StatCard label="Bot Status" value={guild ? "Online" : "…"} icon={Bot} accent="success" />
+        <StatCard label="Bot Status" value={guild ? "Online" : "…"} icon={Bot} accent="success" pulse={!!guild} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -78,8 +78,8 @@ export default function GuildDashboardPage() {
             <AreaChart data={analytics7d}>
               <defs>
                 <linearGradient id="msg7d" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="hsl(255 85% 65%)" stopOpacity={0.5} />
-                  <stop offset="100%" stopColor="hsl(255 85% 65%)" stopOpacity={0} />
+                  <stop offset="0%" stopColor="hsl(154 78% 51%)" stopOpacity={0.5} />
+                  <stop offset="100%" stopColor="hsl(154 78% 51%)" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(240 10% 16%)" />
@@ -93,7 +93,7 @@ export default function GuildDashboardPage() {
               <Tooltip
                 contentStyle={{ background: "hsl(240 14% 9%)", border: "1px solid hsl(240 10% 16%)", borderRadius: 12 }}
               />
-              <Area type="monotone" dataKey="messageCount" stroke="hsl(255 85% 65%)" fill="url(#msg7d)" strokeWidth={2} />
+              <Area type="monotone" dataKey="messageCount" stroke="hsl(154 78% 51%)" fill="url(#msg7d)" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
         </Card>
@@ -104,8 +104,8 @@ export default function GuildDashboardPage() {
             <AreaChart data={analytics24h}>
               <defs>
                 <linearGradient id="msg24h" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="hsl(280 85% 65%)" stopOpacity={0.5} />
-                  <stop offset="100%" stopColor="hsl(280 85% 65%)" stopOpacity={0} />
+                  <stop offset="0%" stopColor="hsl(190 85% 55%)" stopOpacity={0.5} />
+                  <stop offset="100%" stopColor="hsl(190 85% 55%)" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(240 10% 16%)" />
@@ -119,7 +119,7 @@ export default function GuildDashboardPage() {
               <Tooltip
                 contentStyle={{ background: "hsl(240 14% 9%)", border: "1px solid hsl(240 10% 16%)", borderRadius: 12 }}
               />
-              <Area type="monotone" dataKey="onlineCount" stroke="hsl(280 85% 65%)" fill="url(#msg24h)" strokeWidth={2} />
+              <Area type="monotone" dataKey="onlineCount" stroke="hsl(190 85% 55%)" fill="url(#msg24h)" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
         </Card>

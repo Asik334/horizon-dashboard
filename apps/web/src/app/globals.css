@@ -3,16 +3,18 @@
 @tailwind utilities;
 
 :root.dark {
-  --background: 240 15% 6%;
-  --foreground: 240 10% 96%;
-  --card: 240 14% 9%;
-  --border: 240 10% 16%;
-  --muted: 240 10% 14%;
-  --muted-foreground: 240 6% 60%;
-  --accent: 255 85% 65%;
-  --accent-foreground: 0 0% 100%;
-  --destructive: 0 72% 58%;
-  --success: 142 70% 45%;
+  /* Horizon Project — tactical palette, matches the mascot logo */
+  --background: 216 41% 3%;       /* #05070A void */
+  --foreground: 200 15% 82%;      /* #C9D3D9 steel */
+  --card: 215 30% 6%;             /* #0D1117 panel */
+  --border: 220 34% 16%;          /* #1B2438 navy line */
+  --muted: 220 30% 12%;
+  --muted-foreground: 210 8% 46%; /* #6B7680 */
+  --accent: 154 78% 51%;          /* #22E88F signal green */
+  --accent-dim: 154 78% 21%;      /* #0F5C3D hover/dark green */
+  --accent-foreground: 216 41% 3%;
+  --destructive: 0 82% 62%;       /* #EF4B4B */
+  --success: 154 78% 51%;
   --warning: 38 92% 55%;
 }
 
@@ -45,12 +47,65 @@ body {
 .gradient-text {
   background: linear-gradient(
     135deg,
-    hsl(255 85% 70%),
-    hsl(280 85% 70%)
+    hsl(154 78% 55%),
+    hsl(154 78% 40%)
   );
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+
+/* =========================
+   TACTICAL PULSE INDICATOR
+   Firmennyi element: radar-blip status dot.
+   Use for: bot online, live tournaments, active voice channels, ws state.
+   ========================= */
+
+.pulse-dot {
+  position: relative;
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: hsl(var(--accent));
+  flex-shrink: 0;
+}
+
+.pulse-dot::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: 9999px;
+  border: 1px solid hsl(var(--accent));
+  opacity: 0.55;
+  animation: pulse-ring 1.7s ease-out infinite;
+}
+
+.pulse-dot.pulse-dot-idle {
+  background: hsl(var(--muted-foreground));
+}
+
+.pulse-dot.pulse-dot-idle::after {
+  display: none;
+}
+
+.pulse-dot.pulse-dot-danger {
+  background: hsl(var(--destructive));
+}
+
+.pulse-dot.pulse-dot-danger::after {
+  border-color: hsl(var(--destructive));
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
 }
 
 /* =========================

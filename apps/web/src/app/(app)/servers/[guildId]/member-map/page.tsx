@@ -78,14 +78,14 @@ export default function MemberMapPage() {
               y1={CENTER.y}
               x2={p.x}
               y2={p.y}
-              stroke="hsl(255 85% 65%)"
+              stroke="hsl(154 78% 51%)"
               strokeOpacity={0.08 + p.activityRatio * 0.15}
             />
           ))}
 
           {/* центр — сервер */}
-          <circle cx={CENTER.x} cy={CENTER.y} r={26} fill="hsl(255 85% 65%)" fillOpacity={0.25} />
-          <circle cx={CENTER.x} cy={CENTER.y} r={14} fill="hsl(255 85% 65%)" />
+          <circle cx={CENTER.x} cy={CENTER.y} r={26} fill="hsl(154 78% 51%)" fillOpacity={0.25} />
+          <circle cx={CENTER.x} cy={CENTER.y} r={14} fill="hsl(154 78% 51%)" />
 
           {points.map((p) => (
             <g
@@ -98,9 +98,9 @@ export default function MemberMapPage() {
                 cx={p.x}
                 cy={p.y}
                 r={p.size}
-                fill="hsl(280 85% 65%)"
+                fill="hsl(190 85% 55%)"
                 fillOpacity={0.15 + p.activityRatio * 0.35}
-                stroke="hsl(280 85% 65%)"
+                stroke="hsl(190 85% 55%)"
                 strokeWidth={1}
               />
             </g>

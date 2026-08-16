@@ -14,11 +14,16 @@ const config: Config = {
         "muted-foreground": "hsl(var(--muted-foreground))",
         accent: {
           DEFAULT: "hsl(var(--accent))",
+          dim: "hsl(var(--accent-dim))",
           foreground: "hsl(var(--accent-foreground))",
         },
         destructive: "hsl(var(--destructive))",
         success: "hsl(var(--success))",
         warning: "hsl(var(--warning))",
+      },
+      fontFamily: {
+        display: ["var(--font-display)", "sans-serif"],
+        mono: ["var(--font-mono)", "monospace"],
       },
       borderRadius: {
         xl: "1rem",

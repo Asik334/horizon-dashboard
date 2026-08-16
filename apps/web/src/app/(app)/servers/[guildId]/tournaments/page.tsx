@@ -185,7 +185,10 @@ export default function TournamentsPage() {
               <Card className="cursor-pointer space-y-3 transition-transform hover:-translate-y-0.5">
                 <div className="flex items-start justify-between">
                   <h3 className="font-medium">{t.name}</h3>
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[t.status]}`}>
+                  <span
+                    className={`flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[t.status]}`}
+                  >
+                    {t.status === "IN_PROGRESS" && <span className="pulse-dot" aria-hidden="true" />}
                     {statusLabels[t.status]}
                   </span>
                 </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useParams } from "next/navigation";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -57,13 +58,25 @@ export function Sidebar() {
 
   const content = (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 px-5 py-6">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[hsl(255_85%_65%)] to-[hsl(280_85%_65%)] font-bold text-white">
-          H
+      <div className="flex items-center justify-between gap-2 px-5 py-6">
+        <div className="flex items-center gap-2.5">
+          <Image
+            src="/logo.png"
+            alt="Horizon Project"
+            width={36}
+            height={36}
+            className="rounded-lg"
+            priority
+          />
+          <span className="font-display text-lg font-bold uppercase tracking-wide">
+            Horizon <span className="text-accent">Project</span>
+          </span>
         </div>
-        <span className="text-lg font-semibold">
-          Horizon <span className="gradient-text">Bot</span>
-        </span>
+        <span
+          className="pulse-dot"
+          title="Бот онлайн"
+          aria-label="Бот онлайн"
+        />
       </div>
 
       <nav className="flex-1 space-y-1 px-3">

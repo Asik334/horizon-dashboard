@@ -11,6 +11,8 @@ interface StatCardProps {
   icon: LucideIcon;
   trend?: { value: number; positive: boolean };
   accent?: "default" | "warning" | "destructive" | "success";
+  /** Показывать тактический pulse-индикатор рядом со значением (для live-статусов). */
+  pulse?: boolean;
 }
 
 const accentMap = {
@@ -20,7 +22,7 @@ const accentMap = {
   success: "text-[hsl(var(--success))] bg-[hsl(var(--success))]/10",
 };
 
-export function StatCard({ label, value, icon: Icon, trend, accent = "default" }: StatCardProps) {
+export function StatCard({ label, value, icon: Icon, trend, accent = "default", pulse = false }: StatCardProps) {
   return (
     <Card className="flex flex-col gap-3 transition-transform hover:-translate-y-0.5">
       <div className="flex items-center justify-between">
@@ -30,6 +32,7 @@ export function StatCard({ label, value, icon: Icon, trend, accent = "default" }
         </div>
       </div>
       <div className="flex items-baseline gap-2">
+        {pulse && <span className="pulse-dot" aria-hidden="true" />}
         <span className="text-2xl font-semibold tracking-tight">{value}</span>
         {trend && (
           <span className={cn("text-xs font-medium", trend.positive ? "text-[hsl(var(--success))]" : "text-[hsl(var(--destructive))]")}>

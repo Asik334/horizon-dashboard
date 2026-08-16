@@ -30,12 +30,13 @@ export default function VoicePage() {
         {channels.map((c) => (
           <Card key={c.channelId} className="flex items-center justify-between">
             <div className="flex items-center gap-3">
+              <span className={`pulse-dot ${c.users > 0 ? "" : "pulse-dot-idle"}`} aria-hidden="true" />
               <div className="rounded-lg bg-accent/10 p-2 text-accent">
                 <Mic className="h-4 w-4" />
               </div>
               <span className="font-medium">{c.channelName}</span>
             </div>
-            <span className="text-sm text-muted-foreground">{c.users} users</span>
+            <span className="font-mono text-sm text-muted-foreground">{c.users} users</span>
           </Card>
         ))}
         {channels.length === 0 && (
